@@ -1,4 +1,5 @@
 import pickle as pk
+import torch as t
 
 
 
@@ -7,6 +8,7 @@ class Vocab:
         self.data = pk.load(open('vocab.pkl', 'rb'))
         self.t2i = self.data['t2i']
         self.i2t = self.data['i2t']
+        self.matrix = t.nn.Embedding(len(self.t2i), 300, padding_idx=0).data
 
     def convert(self, input, type):
         assert type in ['li2t', 'lt2i', 'i2t', 't2i']
@@ -20,13 +22,10 @@ class Vocab:
             return self.convert_i2t(input)
 
     def convert_i2t(self, input):
-        return self.i2t[input]
+        return [self.i2t[i] for i in input]
 
     def convert_t2i(self, input):
-        try:
-            return self.t2i[input]
-        except:
-            return self.t2i['<UNK>']
+        return [self.t2i[i] if i in self.t2i else self.t2i['<UNK>'] for i in input]
 
     def convert_li2t(self, input):
         return [self.convert_i2t(i) for i in input]

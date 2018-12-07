@@ -6,12 +6,14 @@ from tqdm import tqdm
 import logging
 import numpy as np
 import pickle as pk
+import os
 import gc
 
 
 hdf_file = 'processed.hdf'
 
 logger = logging.getLogger(__name__)
+import ipdb
 
 
 def pad_sequences(sequences, maxlen=None, dtype='int32', padding='post', truncating='post', value=0.):
@@ -84,35 +86,45 @@ class Preprocess:
         self._vocab_t2i = {v: i for i, v in enumerate(self.init_token)}
         self._vocab_i2t = {i: v for i, v in enumerate(self.init_token)}
         self.logger = logging.getLogger('preprocess logger')
+        with h5py.File('processed.hdf', 'w') as file:
+            train = file.create_group('train')
+            val = file.create_group('val')
+            train.create_dataset('feature', (1, 3, 224, 224), maxshape=(None, 3, 224, 224))
+            train.create_dataset('label', (1, 50), maxshape=(None, 50))
+            train.create_dataset('lenth', (1, ), maxshape=(None,))
+            val.create_dataset('feature', (1, 3, 224, 224), maxshape=(None, 3, 224, 224))
+            val.create_dataset('label', (1, 5, 50), maxshape=(None, 5, 50))
+            val.create_dataset('lenth', (1, 5), maxshape=(None, 5))
 
     def str2id(self, str):
         ids = [self._vocab_t2i[i.text.lower()] if i.text.lower() in self._vocab_t2i else self._vocab_t2i['<UNK>'] for i in self.nlp(str)]
         return ids
 
     def handle_vocab(self):
-        train_set = get_dataset('train')
-        self.logger.info('start handle vocab')
-        counter = Counter()
+        if not os.path.exists('vocab.pkl'):
+            train_set = get_dataset('train')
+            self.logger.info('start handle vocab')
+            counter = Counter()
 
-        for instance in tqdm(train_set, desc='handling vocab'):
-            captions = instance[1]
-            for caption in captions:
-                token_list = [i.text.lower() for i in self.nlp(caption)]
-                counter.update(token_list)
-        self.logger.info(f'num of vocab is {len(counter)}')
-        for i in counter:
-            index = len(self._vocab_i2t)
-            self._vocab_i2t[index] = i
-            self._vocab_t2i[i] = index
-        logger.info(f'vocab built.')
+            for instance in tqdm(train_set, desc='handling vocab'):
+                captions = instance[1]
+                for caption in captions:
+                    token_list = [i.text.lower() for i in self.nlp(caption)]
+                    counter.update(token_list)
+            self.logger.info(f'num of vocab is {len(counter)}')
+            for i in counter:
+                index = len(self._vocab_i2t)
+                self._vocab_i2t[index] = i
+                self._vocab_t2i[i] = index
+            vocab = {'t2i': self._vocab_t2i, 'i2t': self._vocab_i2t}
+            pk.dump(vocab, open('vocab.pkl', 'wb'))
+            logger.info(f'vocab built.')
 
     def process_train(self):
         self.logger.info('start process train_set')
-        self.train_features = []
-        self.train_labels = []
-        self.train_lenths = []
+        self.writer = h5py.File('processed.hdf', 'a')
         train_set = get_dataset('train')
-        for instance in tqdm(train_set, desc='processing train set'):
+        for index, instance in tqdm(enumerate(train_set), desc='processing train set'):
             if not len(instance[1]) >= 5:
                 continue
             captions = instance[1]
@@ -121,47 +133,34 @@ class Preprocess:
             captions_lenths = [len(i) for i in captions]
 
             for i in range(5):
-                self.train_features.append(instance[0].numpy())
-                self.train_labels.append(padded_captions[i])
-                self.train_lenths.append(captions_lenths[i])
+                self.writer['train']['feature'].resize([index+1, 3, 224, 224])
+                self.writer['train']['feature'][index:index+1] = instance[0].numpy()
+                self.writer['train']['label'].resize([index+1, 50])
+                self.writer['train']['label'][index:index+1] = padded_captions[i]
+                self.writer['train']['lenth'].resize([index+1, ])
+                self.writer['train']['lenth'][index:index+1] = captions_lenths[i]
+
+            gc.collect()
+        self.writer.close()
 
     def process_val(self):
         self.logger.info('start process val_set')
-        self.val_features = []
-        self.val_labels = []
-        self.val_lenths = []
+        self.writer = h5py.File('processed.hdf', 'a')
         val_set = get_dataset('val')
-        for instance in tqdm(val_set, desc='processing val set'):
+        for index, instance in tqdm(enumerate(val_set), desc='processing val set'):
             assert len(instance[1]) >= 5
             captions = instance[1]
             captions = [[self._vocab_t2i['<BOS>']] + self.str2id(i) + [self._vocab_t2i['<EOS>']] for i in captions][:5]
             padded_captions = pad_sequences(captions, 50)
             captions_lenths = [len(i) for i in captions]
-            self.val_features.append(instance[0].numpy())
-            self.val_labels.append(padded_captions)
-            self.val_lenths.append(captions_lenths)
-
-    def save_to_hdf(self):
-        with h5py.File('test.hdf', 'w') as file:
-            train_group = file.create_group('train')
-            val_group = file.create_group('val')
-            meta_group = file.create_group('meta')
-            train_group.create_dataset('feature', data=np.array(self.train_features))
-            del self.train_features
-            train_group.create_dataset('label', data=np.array(self.train_labels))
-            del self.train_labels
-            train_group.create_dataset('lenths', data=np.array(self.train_lenths))
-            del self.train_lenths
-            gc.collect()
-            val_group.create_dataset('feature', data=np.array(self.val_features))
-            del self.val_features
-            val_group.create_dataset('label', data=np.array(self.val_labels))
-            del self.val_labels
-            val_group.create_dataset('lenths', data=np.array(self.val_lenths))
-            del self.val_lenths
-            gc.collect()
-        vocab = {'t2i': self._vocab_t2i, 'i2t': self._vocab_i2t}
-        pk.dump(vocab, open('vocab.pkl', 'wb'))
+            self.writer['val']['feature'].resize([index+1, 3, 224, 224])
+            self.writer['val']['feature'][index:index+1] = instance[0].numpy()
+            self.writer['val']['label'].resize([index+1, 5, 50])
+            self.writer['val']['label'][index:index+1] = padded_captions
+            self.writer['val']['lenth'].resize([index+1, 5, ])
+            self.writer['val']['lenth'][index:index+1] = captions_lenths
+        gc.collect()
+        self.writer.close()
 
 
 if __name__ == '__main__':
@@ -169,11 +168,11 @@ if __name__ == '__main__':
     process.handle_vocab()
     process.process_train()
     process.process_val()
-    process.save_to_hdf()
 
 
 
 
 
-
+# file = h5py.File('processed.hdf', 'r')
+# file['train']['feature][10].shape
 

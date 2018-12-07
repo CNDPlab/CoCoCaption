@@ -64,9 +64,9 @@ class BaseTrainerS(object):
                 config_str += '----' + f'{k}:{getattr(self.args, k)}' + '----'
         self.summary_writer.add_text('configs', config_str, 0)
 
-    def save(self, score, loss):
+    def save(self, score):
         current_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-        file_name = current_time + 'T' + str(score) + 'T' + str(loss)
+        file_name = current_time + 'T' + str(score)
         path = os.path.join(self.paths['saved_model_root'], file_name)
         if not os.path.exists(path):
             os.mkdir(path)

@@ -14,6 +14,12 @@ class ScheduledTrainerTrans(BaseTrainerS):
         for epoch in range(self.args.epochs):
             self.train_epoch()
             self.global_epoch += 1
+            if self.global_epoch == 15:
+                try:
+                    self.model.vgg_feature.requires_grad = True
+                except:
+                    self.model.module.vgg_feature.requires_grad = True
+
             self.reserve_topk_model(5)
         if self.summary_writer:
             self.summary_writer.close()
@@ -31,6 +37,7 @@ class ScheduledTrainerTrans(BaseTrainerS):
                 self.summary_writer.add_scalar('lr', self.optim.state_dict()['param_groups'][0]['lr'], self.global_step)
             self.global_step += 1
         eval_score = self.evaluation()
+        self.save(eval_score)
         self.scheduler.step(eval_score)
 
     def evaluation(self):
@@ -82,13 +89,13 @@ class ScheduledTrainerTrans(BaseTrainerS):
             ninstance = []
             for id in instance:
                 if self.use_multi_gpu:
-                    if id != self.model.module.vocab.token2id['<EOS>']:
+                    if id != self.model.module.vocab.t2i['<EOS>']:
                         ninstance.append(id)
                     else:
                         ninstance.append(id)
                         break
                 else:
-                    if id != self.model.vocab.token2id['<EOS>']:
+                    if id != self.model.vocab.t2i['<EOS>']:
                         ninstance.append(id)
                     else:
                         ninstance.append(id)

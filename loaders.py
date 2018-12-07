@@ -16,23 +16,28 @@ def get_dataset(data_set):
     return dataset
 
 
-class HDFSet(Dataset):
+
+class HDFSet(TensorDataset):
     def __init__(self, set):
-        file = h5py.File('processed.hdf', 'r')
-        self.features = file[set]['feature']
-        self.labels = file[set]['label']
-        self.lenths = file[set]['lenths']
+        super(HDFSet, self).__init__()
+        self.set = set
 
     def __len__(self):
-        return len(self.features)
+        with h5py.File('processed.hdf', 'r') as reader:
+            le = len(reader[self.set]['feature'])
+        return le
 
     def __getitem__(self, item):
-        return self.features[item], self.labels[item], self.lenths[item]
+        with h5py.File('processed.hdf','r') as reader:
+            feature = reader[self.set]['feature'][item]
+            label = reader[self.set]['label'][item]
+            lenth = reader[self.set]['lenth'][item]
+        return feature, label, lenth
 
 
-def get_loaders(set, batch_size):
+def get_loaders(set, batch_size, num_works):
     dataset = HDFSet(set)
-    dataloader = DataLoader(dataset, batch_size, True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size, True, drop_last=True, num_workers=num_works)
     return dataloader
 
 
@@ -43,3 +48,10 @@ if __name__ == '__main__':
     # loader = get_loader('val', 2)
     # for i in tqdm(loader):
     #     pass
+#
+# from tqdm import tqdm
+# from loaders import get_loaders
+#
+# val = get_loaders('val',32,2)
+# for i in tqdm(val):
+#     pass
