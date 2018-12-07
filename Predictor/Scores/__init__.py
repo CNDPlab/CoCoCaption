@@ -1,0 +1,1 @@
+from .RougeScore.score_function import rouge_func
