@@ -8,6 +8,7 @@ import numpy as np
 import pickle as pk
 import os
 import gc
+import shutil
 
 
 hdf_file = 'processed.hdf'
@@ -90,8 +91,9 @@ class Preprocess:
             train = file.create_group('train')
             val = file.create_group('val')
             train.create_dataset('feature', (1, 3, 224, 224), maxshape=(None, 3, 224, 224))
-            train.create_dataset('label', (1, 50), maxshape=(None, 50))
-            train.create_dataset('lenth', (1, ), maxshape=(None,))
+            train.create_dataset('label', (1, 5, 50), maxshape=(None, 5, 50))
+            train.create_dataset('lenth', (1, 5), maxshape=(None, 5))
+
             val.create_dataset('feature', (1, 3, 224, 224), maxshape=(None, 3, 224, 224))
             val.create_dataset('label', (1, 5, 50), maxshape=(None, 5, 50))
             val.create_dataset('lenth', (1, 5), maxshape=(None, 5))
@@ -101,24 +103,24 @@ class Preprocess:
         return ids
 
     def handle_vocab(self):
-        if not os.path.exists('vocab.pkl'):
-            train_set = get_dataset('train')
-            self.logger.info('start handle vocab')
-            counter = Counter()
+        train_set = get_dataset('train')
+        self.logger.info('start handle vocab')
+        counter = Counter()
 
-            for instance in tqdm(train_set, desc='handling vocab'):
-                captions = instance[1]
-                for caption in captions:
-                    token_list = [i.text.lower() for i in self.nlp(caption)]
-                    counter.update(token_list)
-            self.logger.info(f'num of vocab is {len(counter)}')
-            for i in counter:
+        for instance in tqdm(train_set, desc='handling vocab'):
+            captions = instance[1]
+            for caption in captions:
+                token_list = [i.text.lower() for i in self.nlp(caption)]
+                counter.update(token_list)
+        self.logger.info(f'num of vocab is {len(counter)}')
+        for i in counter.items():
+            if i[1] >= 5:
                 index = len(self._vocab_i2t)
-                self._vocab_i2t[index] = i
-                self._vocab_t2i[i] = index
-            vocab = {'t2i': self._vocab_t2i, 'i2t': self._vocab_i2t}
-            pk.dump(vocab, open('vocab.pkl', 'wb'))
-            logger.info(f'vocab built.')
+                self._vocab_i2t[index] = i[0]
+                self._vocab_t2i[i[0]] = index
+        vocab = {'t2i': self._vocab_t2i, 'i2t': self._vocab_i2t}
+        pk.dump(vocab, open('vocab.pkl', 'wb'))
+        logger.info(f'vocab built.')
 
     def process_train(self):
         self.logger.info('start process train_set')
@@ -132,14 +134,12 @@ class Preprocess:
             padded_captions = pad_sequences(captions, 50)
             captions_lenths = [len(i) for i in captions]
 
-            for i in range(5):
-                self.writer['train']['feature'].resize([index+1, 3, 224, 224])
-                self.writer['train']['feature'][index:index+1] = instance[0].numpy()
-                self.writer['train']['label'].resize([index+1, 50])
-                self.writer['train']['label'][index:index+1] = padded_captions[i]
-                self.writer['train']['lenth'].resize([index+1, ])
-                self.writer['train']['lenth'][index:index+1] = captions_lenths[i]
-
+            self.writer['train']['feature'].resize([index + 1, 3, 224, 224])
+            self.writer['train']['feature'][index:index + 1] = instance[0].numpy()
+            self.writer['train']['label'].resize([index + 1, 5, 50])
+            self.writer['train']['label'][index:index + 1] = padded_captions
+            self.writer['train']['lenth'].resize([index + 1, 5, ])
+            self.writer['train']['lenth'][index:index + 1] = captions_lenths
             gc.collect()
         self.writer.close()
 
@@ -153,12 +153,12 @@ class Preprocess:
             captions = [[self._vocab_t2i['<BOS>']] + self.str2id(i) + [self._vocab_t2i['<EOS>']] for i in captions][:5]
             padded_captions = pad_sequences(captions, 50)
             captions_lenths = [len(i) for i in captions]
-            self.writer['val']['feature'].resize([index+1, 3, 224, 224])
-            self.writer['val']['feature'][index:index+1] = instance[0].numpy()
-            self.writer['val']['label'].resize([index+1, 5, 50])
-            self.writer['val']['label'][index:index+1] = padded_captions
-            self.writer['val']['lenth'].resize([index+1, 5, ])
-            self.writer['val']['lenth'][index:index+1] = captions_lenths
+            self.writer['val']['feature'].resize([index + 1, 3, 224, 224])
+            self.writer['val']['feature'][index:index + 1] = instance[0].numpy()
+            self.writer['val']['label'].resize([index + 1, 5, 50])
+            self.writer['val']['label'][index:index + 1] = padded_captions
+            self.writer['val']['lenth'].resize([index + 1, 5, ])
+            self.writer['val']['lenth'][index:index + 1] = captions_lenths
         gc.collect()
         self.writer.close()
 

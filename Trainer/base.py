@@ -41,8 +41,9 @@ class BaseTrainerS(object):
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         if resume_from is None:
-            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=5e-5)
-            self.scheduler = t.optim.lr_scheduler.ReduceLROnPlateau(self.optim, 'max', 0.5, 0, verbose=True, cooldown=0, min_lr=1e-8)
+            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=1e-3)
+            self.scheduler = t.optim.lr_scheduler.ReduceLROnPlateau(self.optim, 'max', 0.1, 0, verbose=True, cooldown=0,
+                                                                    min_lr=1e-7)
         else:
             resume_path = os.path.join(self.paths['ckpt_root'], resume_from)
             self.load(resume_path)

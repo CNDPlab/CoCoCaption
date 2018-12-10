@@ -16,7 +16,6 @@ def get_dataset(data_set):
     return dataset
 
 
-
 class HDFSet(TensorDataset):
     def __init__(self, set):
         super(HDFSet, self).__init__()
@@ -28,7 +27,7 @@ class HDFSet(TensorDataset):
         return le
 
     def __getitem__(self, item):
-        with h5py.File('processed.hdf','r') as reader:
+        with h5py.File('processed.hdf', 'r') as reader:
             feature = reader[self.set]['feature'][item]
             label = reader[self.set]['label'][item]
             lenth = reader[self.set]['lenth'][item]

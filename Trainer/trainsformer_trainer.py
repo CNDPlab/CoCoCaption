@@ -19,7 +19,7 @@ class ScheduledTrainerTrans(BaseTrainerS):
                     self.model.vgg_feature.requires_grad = True
                 except:
                     self.model.module.vgg_feature.requires_grad = True
-
+                print('vgg requires_grad set True.')
             self.reserve_topk_model(5)
         if self.summary_writer:
             self.summary_writer.close()
@@ -58,11 +58,15 @@ class ScheduledTrainerTrans(BaseTrainerS):
     def train_inference(self, data):
         self.model.train()
         feature, caption, lenths = [i.cuda() for i in data]
+        batch_size, c, h, w = feature.size()
+        _, n, l = caption.size()
+        feature = feature.unsqueeze(1).expand((batch_size, n, c, h, w)).contiguous().view(-1, c, h, w)
         caption = caption.long()
+        caption = caption.view(-1, l)
+
         self.optim.zero_grad()
 
         output_log_prob, output_id = self.model(feature, caption)
-        caption = caption.view(-1, caption.size(-1)).long()
         loss = self.loss_func(output_log_prob, caption)
         return loss
 
