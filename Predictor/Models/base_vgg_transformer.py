@@ -1,4 +1,3 @@
-from Predictor.vocab import load_vocab
 import torchvision as tv
 import torch as t
 import numpy as np
@@ -7,9 +6,9 @@ import ipdb
 import math
 
 
-class VGGTransformerNew(t.nn.Module):
+class VGGTransformerNew1(t.nn.Module):
     def __init__(self, vocab, args):
-        super(VGGTransformerNew, self).__init__()
+        super(VGGTransformerNew1, self).__init__()
         self.args = args
         self.vocab = vocab
 
@@ -44,19 +43,12 @@ class VGGTransformerNew(t.nn.Module):
         return input_mask, self_attention_mask, dot_attention_mask, direction_mask
 
     def forward(self, image_tensor, captions):
-        # prepare inputs
-        if len(image_tensor.size()) == 5:
-            image_tensor = image_tensor.view(-1, image_tensor.size(-3), image_tensor.size(-2), image_tensor.size(-1))
-            captions = captions.view(-1, captions.size(-1))
-        else:
-            pass
         batch_size = image_tensor.size(0)
         image_feature = self.vgg_feature(image_tensor).permute(0, 2, 3, 1).contiguous().view(batch_size, -1,
                                                                                              self.args.embedding_size)
         image_input = self.vgg_input(image_feature.view(batch_size, -1))
         image_input = self.vgg_input_reshape(image_input).unsqueeze(1).expand(-1, captions.size(-1), -1)
         word_input = self.word_embedding(captions)
-
         transformer_input = t.cat([word_input, image_input], -1)
         transformer_input = self.input_reshape(transformer_input)
 
@@ -74,13 +66,29 @@ class VGGTransformerNew(t.nn.Module):
     def greedy_search(self, image_tensor):
         batch_size = image_tensor.size(0)
         device = image_tensor.device
-
+        image_feature = self.vgg_feature(image_tensor).permute(0, 2, 3, 1).contiguous().view(batch_size, -1,
+                                                                                             self.args.embedding_size)
         for i in range(self.args.max_seq_len):
             if i == 0:
-                input_caption = t.ones((batch_size, 1), dtype=t.long, device=device) * self.vocab.token2id['<BOS>']
+                input_caption = t.ones((batch_size, 1), dtype=t.long, device=device) * self.vocab.t2i['<BOS>']
             else:
                 input_caption = t.cat([input_caption, output_token[:, -1:]], -1)
-            output_log_prob, output_token = self.forward(image_tensor, input_caption)
+
+            image_input = self.vgg_input(image_feature.view(batch_size, -1))
+            image_input = self.vgg_input_reshape(image_input).unsqueeze(1).expand(-1, input_caption.size(-1), -1)
+            word_input = self.word_embedding(input_caption)
+            transformer_input = t.cat([word_input, image_input], -1)
+            transformer_input = self.input_reshape(transformer_input)
+            input_mask, self_attention_mask, dot_attention_mask, direction_mask = self.get_masks(batch_size, input_caption,
+                                                                                                 image_feature)
+            transformer_input *= input_mask.float().unsqueeze(-1)
+
+            transformer_output, self_attention_matrix, dot_attention_matrix = self.transformer_decoder(
+                transformer_input, image_feature, input_mask, self_attention_mask, dot_attention_mask, direction_mask
+            )
+            output_log_prob = self.output_linear(transformer_output)
+            output_token = output_log_prob.argmax(-1)
+
         return output_token
 
 
@@ -92,7 +100,7 @@ def Linear(in_features, out_features, dropout=0.):
 
 
 class TransformerDecoder(t.nn.Module):
-    def __init__(self, embedding_size, encoder_output_size, hidden_size, dropout, num_head, max_lenth=25, max_time=6):
+    def __init__(self, embedding_size, encoder_output_size, hidden_size, dropout, num_head, max_lenth=50, max_time=6):
         super(TransformerDecoder, self).__init__()
         self.position_embedding = PositionEncoding(max_lenth=max_lenth + 5, embedding_size=embedding_size)
         self.time_embedding = PositionEncoding(max_lenth=max_time + 5, embedding_size=embedding_size)
@@ -121,7 +129,6 @@ class TransformerDecoder(t.nn.Module):
             self_attention_direction_mask = self_attention_mask
         else:
             self_attention_direction_mask = None
-
         batch_size, seq_lenth, embedding_size = word_embedding.size()
         device = word_embedding.device
         position_feature = self.get_position_feature(batch_size, seq_lenth, device)
@@ -271,19 +278,26 @@ class PositionEncoding(t.nn.Module):
 
 if __name__ == '__main__':
     import ipdb
-    from loaders import get_loader
+    from loaders import get_loaders
     from configs_transformer import DefaultConfig
     from tqdm import tqdm
+    from vocabulary import Vocab
     args = DefaultConfig
     args.batch_size = 2
-    loader = get_loader('train', args.batch_size)
-    vocab = load_vocab()
+    loader = get_loaders('val', args.batch_size,2)
+    vocab = Vocab()
 
     for i in tqdm(loader):
-        feature, captions = [j for j in i]
-        model = VGGTransformerNew(vocab, args)
-        output_log_prob, output_token = model(feature, captions.long())
-        token = model.greedy_search(feature[:, 0])
+        feature, caption, lenth = [j for j in i]
+        batch_size, c, h, w = feature.size()
+        _, n, l = caption.size()
+        feature = feature.unsqueeze(1).expand((batch_size, n, c, h, w)).contiguous().view(-1, c, h, w)
+        caption = caption.long()
+        caption = caption.view(-1, l)
+
+        model = VGGTransformerNew1(vocab, args)
+        output_log_prob, output_token = model(feature, caption)
+        token = model.greedy_search(feature)
         loss = output_log_prob.sum()
         loss.backward()
         d = []

@@ -20,11 +20,12 @@ class HDFSet(TensorDataset):
     def __init__(self, set):
         super(HDFSet, self).__init__()
         self.set = set
-
-    def __len__(self):
         with h5py.File('processed.hdf', 'r') as reader:
             le = len(reader[self.set]['feature'])
-        return le
+        self.lenth = le
+
+    def __len__(self):
+        return self.lenth
 
     def __getitem__(self, item):
         with h5py.File('processed.hdf', 'r') as reader:
@@ -41,16 +42,12 @@ def get_loaders(set, batch_size, num_works):
 
 
 if __name__ == '__main__':
-    pass
-    # count = []
-    # from tqdm import tqdm
-    # loader = get_loader('val', 2)
-    # for i in tqdm(loader):
-    #     pass
-#
-# from tqdm import tqdm
-# from loaders import get_loaders
-#
-# val = get_loaders('val',32,2)
-# for i in tqdm(val):
-#     pass
+    train = get_loaders('val', 10, 10)
+    from tqdm import tqdm
+    import ipdb
+    lenths = []
+    for i in tqdm(train):
+        lenths.append(i[2].max().item())
+    import numpy as np
+
+    print(np.max(lenths))

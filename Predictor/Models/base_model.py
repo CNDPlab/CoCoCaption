@@ -1,4 +1,3 @@
-from Predictor.vocab import load_vocab
 import torchvision as tv
 import torch as t
 import numpy as np
@@ -273,12 +272,13 @@ class PositionEncoding(t.nn.Module):
 if __name__ == '__main__':
     import ipdb
     from loaders import get_loader
+    from vocabulary import Vocab
     from configs_transformer import DefaultConfig
     from tqdm import tqdm
     args = DefaultConfig
     args.batch_size = 2
     loader = get_loader('train', args.batch_size)
-    vocab = load_vocab()
+    vocab = Vocab()
 
     for i in tqdm(loader):
         feature, captions = [j for j in i]

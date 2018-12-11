@@ -1,4 +1,4 @@
-from Trainer import BaseTrainerS
+from .base import BaseTrainerS
 from tqdm import tqdm
 import torch as t
 import numpy as np

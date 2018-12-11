@@ -2,19 +2,18 @@ import warnings
 
 
 class DefaultConfig:
-    vocab = 'Predictor/vocab.pkl'
-    model_name = 'BaseLine'
+    model_name = 'VGGTransformerNew1'
     ckpt_root = 'Predictor/checkpoints'
 
     dropout = 0.1
     num_head = 6
     embedding_size = 512
-    max_seq_len = 25
+    max_seq_len = 65
     epochs = 30
-    batch_size = 16
+    batch_size = 10
     hidden_size = 128
-    eval_every_step = 1e10
-    save_every_step = 10000
+    eval_every_step = 5
+    save_every_step = 5
     resume = None
 
     def parse(self, kwargs):

@@ -8,7 +8,7 @@ class Vocab:
         self.data = pk.load(open('vocab.pkl', 'rb'))
         self.t2i = self.data['t2i']
         self.i2t = self.data['i2t']
-        self.matrix = t.nn.Embedding(len(self.t2i), 300, padding_idx=0).data
+        self.matrix = t.nn.Embedding(len(self.t2i), 512, padding_idx=0).weight
 
     def convert(self, input, type):
         assert type in ['li2t', 'lt2i', 'i2t', 't2i']

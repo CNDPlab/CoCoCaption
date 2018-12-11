@@ -10,7 +10,21 @@ import os
 import gc
 import shutil
 
+## TODO
+"""
 
+
+
+
+
+
+
+
+
+
+
+
+"""
 hdf_file = 'processed.hdf'
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 import ipdb
