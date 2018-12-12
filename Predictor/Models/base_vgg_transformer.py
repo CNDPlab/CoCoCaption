@@ -15,7 +15,7 @@ class VGGTransformerNew1(t.nn.Module):
         self.vgg_feature = tv.models.vgg16(True).features
         self.vgg_feature.requires_grad = False
         self.vgg_input = t.nn.Sequential(*list(tv.models.vgg16(True).classifier.children())[:-1])
-
+        self.vgg_input.requires_grad = False
         self.vgg_input_reshape = t.nn.Sequential(
             Linear(4096, 512, args.dropout),
             t.nn.ReLU(True)
@@ -28,6 +28,8 @@ class VGGTransformerNew1(t.nn.Module):
                                                       args.dropout, args.num_head, max_lenth=1+args.max_seq_len,
                                                       max_time=12)
         self.output_linear = t.nn.Linear(vocab.matrix.shape[1], vocab.matrix.shape[0], bias=False)
+        t.nn.init.xavier_normal_(self.output_linear.weight)
+
 
     def get_masks(self, batch_size, word_input, feature):
         device = word_input.device
@@ -88,7 +90,6 @@ class VGGTransformerNew1(t.nn.Module):
             )
             output_log_prob = self.output_linear(transformer_output)
             output_token = output_log_prob.argmax(-1)
-
         return output_token
 
 

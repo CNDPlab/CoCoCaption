@@ -19,8 +19,12 @@ class ScheduledTrainerTrans(BaseTrainerS):
             if self.global_epoch == 15:
                 try:
                     self.model.vgg_feature.requires_grad = True
+                    self.model.vgg_input.requires_grad = True
+
                 except:
                     self.model.module.vgg_feature.requires_grad = True
+                    self.model.module.vgg_input.requires_grad = True
+
                 print('vgg requires_grad set True.')
             self.reserve_topk_model(5)
         if self.summary_writer:
@@ -40,8 +44,7 @@ class ScheduledTrainerTrans(BaseTrainerS):
             self.global_step += 1
         eval_score = self.evaluation()
         self.save(eval_score)
-        self.scheduler.step(eval_score)
-
+        
     def evaluation(self):
         scores = []
         self.model.eval()

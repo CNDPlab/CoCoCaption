@@ -10,7 +10,7 @@ class DefaultConfig:
     embedding_size = 512
     max_seq_len = 65
     epochs = 30
-    batch_size = 10
+    batch_size = 12
     hidden_size = 128
     resume = None
 
