@@ -25,6 +25,7 @@ class HDFSet(TensorDataset):
         self.lenth = le
 
     def __len__(self):
+        #return 10
         return self.lenth
 
     def __getitem__(self, item):

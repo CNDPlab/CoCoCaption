@@ -2,7 +2,6 @@ import pickle as pk
 import torch as t
 
 
-
 class Vocab:
     def __init__(self):
         self.data = pk.load(open('vocab.pkl', 'rb'))

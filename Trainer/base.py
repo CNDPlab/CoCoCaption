@@ -95,7 +95,7 @@ class BaseTrainerS(object):
         self.args = trainner_state['args']
 
     def get_best_k_model_path(self, path, k=1):
-        k_best_model_folder = sorted(os.listdir(path), key=lambda x: x.split('T')[2], reverse=True)[:k]
+        k_best_model_folder = sorted(os.listdir(path), key=lambda x: x.split('T')[1], reverse=True)[:k]
         return k_best_model_folder
 
     def reserve_topk_model(self, k=5):

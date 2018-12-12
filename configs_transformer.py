@@ -12,8 +12,6 @@ class DefaultConfig:
     epochs = 30
     batch_size = 10
     hidden_size = 128
-    eval_every_step = 5
-    save_every_step = 5
     resume = None
 
     def parse(self, kwargs):
