@@ -41,12 +41,11 @@ class BaseTrainerS(object):
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         if resume_from is None:
-            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=5e-5,
-                                      weight_decay=1e-4)
+            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=3e-4)
             self.scheduler = t.optim.lr_scheduler.ReduceLROnPlateau(self.optim, 'max', 0.7, 0, verbose=True, cooldown=0,
                                                                     min_lr=1e-7)
         else:
-            resume_path = os.path.join(self.paths['ckpt_root'], resume_from)
+            resume_path = os.path.join(self.paths['ckpt_root'], resume_from, 'saved_models')
             self.load(resume_path)
         print("--------preparing folders")
         self.paths['exp_root'] = os.path.join(self.args.ckpt_root, self.init_time)
@@ -87,7 +86,11 @@ class BaseTrainerS(object):
     def load(self, load_from_exp):
         best_model_path = self.get_best_k_model_path(load_from_exp, k=1)[0]
         trainner_state = t.load(os.path.join(load_from_exp, best_model_path, 'trainner_state'))
-        self.model.load_state_dict(t.load(os.path.join(load_from_exp, best_model_path, 'model')))
+        if not self.use_multi_gpu:
+            self.model.load_state_dict(t.load(os.path.join(load_from_exp, best_model_path, 'model')))
+        else:
+            self.model.module.load_state_dict(t.load(os.path.join(load_from_exp, best_model_path, 'model')))
+
         self.global_step = trainner_state['epoch']
         self.global_epoch = trainner_state['step']
         self.optim = trainner_state['optim']

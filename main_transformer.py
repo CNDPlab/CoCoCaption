@@ -26,7 +26,19 @@ def train(**kwargs):
 
 
 
+def train_re(**kwargs):
+    args = DefaultConfig()
+    args.parse(kwargs)
+    vocab = Vocab()
+    loss_functions = transformer_celoss
+    score_functions = rouge_func
+    model = getattr(Models, args.model_name)(vocab, args)
+    train_loader = get_loaders('train', args.batch_size, 10)
+    dev_loader = get_loaders('val', args.batch_size, 10)
+    trainer = ScheduledTrainerTrans(args, model, loss_functions, score_functions, train_loader, dev_loader)
+    trainer.init_trainner(resume_from=args.resume)
 
+    trainer.train()
 
 
 if __name__ == '__main__':

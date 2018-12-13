@@ -81,7 +81,7 @@ class Preprocess:
     def __init__(self):
         self.hdf_file = hdf_file
         self.nlp = spacy.load('en')
-        self.embedding_dim = 300
+        self.embedding_dim = 512
         self.init_token = ['<PAD>', '<UNK>', '<BOS>', '<EOS>']
         self._vocab_t2i = {v: i for i, v in enumerate(self.init_token)}
         self._vocab_i2t = {i: v for i, v in enumerate(self.init_token)}
@@ -154,6 +154,8 @@ class Preprocess:
             self.writer['val']['lenth'][index:index + 1] = captions_lenths
         gc.collect()
         self.writer.close()
+
+
 
 
 if __name__ == '__main__':

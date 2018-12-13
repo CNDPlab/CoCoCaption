@@ -2,6 +2,7 @@ import pickle as pk
 import torch as t
 
 
+
 class Vocab:
     def __init__(self):
         self.data = pk.load(open('vocab.pkl', 'rb'))
@@ -31,4 +32,3 @@ class Vocab:
 
     def convert_lt2i(self, input):
         return [self.convert_t2i(i) for i in input]
-
