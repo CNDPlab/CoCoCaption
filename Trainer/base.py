@@ -41,7 +41,7 @@ class BaseTrainerS(object):
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         if resume_from is None:
-            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=3e-4)
+            self.optim = t.optim.Adam([i for i in self.model.parameters() if i.requires_grad is True], lr=5e-5)
             self.scheduler = t.optim.lr_scheduler.ReduceLROnPlateau(self.optim, 'max', 0.7, 0, verbose=True, cooldown=0,
                                                                     min_lr=1e-7)
         else:
@@ -85,6 +85,7 @@ class BaseTrainerS(object):
 
     def load(self, load_from_exp):
         best_model_path = self.get_best_k_model_path(load_from_exp, k=1)[0]
+        print(f'best model path:{best_model_path}')
         trainner_state = t.load(os.path.join(load_from_exp, best_model_path, 'trainner_state'))
         if not self.use_multi_gpu:
             self.model.load_state_dict(t.load(os.path.join(load_from_exp, best_model_path, 'model')))

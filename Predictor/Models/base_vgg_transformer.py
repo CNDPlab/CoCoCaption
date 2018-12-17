@@ -18,18 +18,23 @@ class VGGTransformerNew1(t.nn.Module):
         self.vgg_input.requires_grad = False
         self.vgg_input_reshape = t.nn.Sequential(
             Linear(4096, 512, args.dropout),
-            t.nn.ReLU(True)
+            t.nn.ReLU(True),
         )
         self.feature_size = 512
         self.word_embedding = t.nn.Embedding(vocab.matrix.shape[0], vocab.matrix.shape[1], padding_idx=0,
                                              _weight=vocab.matrix)
+        self.word_embedding.weight.data.normal_(0, 0.1)
+
         self.input_reshape = Linear(512 * 2, args.embedding_size, args.dropout)
+        self.input_norm = t.nn.LayerNorm(args.embedding_size)
         self.transformer_decoder = TransformerDecoder(args.embedding_size, self.feature_size, args.hidden_size,
                                                       args.dropout, args.num_head, max_lenth=1+args.max_seq_len,
-                                                      max_time=12)
-        self.output_linear = t.nn.Linear(vocab.matrix.shape[1], vocab.matrix.shape[0], bias=False)
-        t.nn.init.xavier_normal_(self.output_linear.weight)
-
+                                                      max_time=6)
+        self.output_linear = t.nn.Sequential(
+            Linear(vocab.matrix.shape[1], int(vocab.matrix.shape[1]/2)),
+            t.nn.ReLU(True),
+            Linear(int(vocab.matrix.shape[1]/2), vocab.matrix.shape[0], args.dropout)
+        )
 
     def get_masks(self, batch_size, word_input, feature):
         device = word_input.device
@@ -52,11 +57,12 @@ class VGGTransformerNew1(t.nn.Module):
         image_input = self.vgg_input_reshape(image_input).unsqueeze(1).expand(-1, captions.size(-1), -1)
         word_input = self.word_embedding(captions)
         transformer_input = t.cat([word_input, image_input], -1)
-        transformer_input = self.input_reshape(transformer_input)
+        transformer_input = self.input_norm(self.input_reshape(transformer_input))
 
         # inference
         input_mask, self_attention_mask, dot_attention_mask, direction_mask = self.get_masks(batch_size, captions, image_feature)
         transformer_input *= input_mask.float().unsqueeze(-1)
+
 
         transformer_output, self_attention_matrix, dot_attention_matrix = self.transformer_decoder(
             transformer_input, image_feature, input_mask, self_attention_mask, dot_attention_mask, direction_mask
@@ -80,12 +86,12 @@ class VGGTransformerNew1(t.nn.Module):
             image_input = self.vgg_input_reshape(image_input).unsqueeze(1).expand(-1, input_caption.size(-1), -1)
             word_input = self.word_embedding(input_caption)
             transformer_input = t.cat([word_input, image_input], -1)
-            transformer_input = self.input_reshape(transformer_input)
+            transformer_input = self.input_norm(self.input_reshape(transformer_input))
             input_mask, self_attention_mask, dot_attention_mask, direction_mask = self.get_masks(batch_size, input_caption,
                                                                                                  image_feature)
             transformer_input *= input_mask.float().unsqueeze(-1)
 
-            transformer_output, self_attention_matrix, dot_attention_matrix = self.transformer_decoder(
+            transformer_output, _, _ = self.transformer_decoder(
                 transformer_input, image_feature, input_mask, self_attention_mask, dot_attention_mask, direction_mask
             )
             output_log_prob = self.output_linear(transformer_output)
@@ -101,7 +107,7 @@ def Linear(in_features, out_features, dropout=0.):
 
 
 class TransformerDecoder(t.nn.Module):
-    def __init__(self, embedding_size, encoder_output_size, hidden_size, dropout, num_head, max_lenth=50, max_time=6):
+    def __init__(self, embedding_size, encoder_output_size, hidden_size, dropout, num_head, max_lenth, max_time):
         super(TransformerDecoder, self).__init__()
         self.position_embedding = PositionEncoding(max_lenth=max_lenth + 5, embedding_size=embedding_size)
         self.time_embedding = PositionEncoding(max_lenth=max_time + 5, embedding_size=embedding_size)
@@ -135,21 +141,21 @@ class TransformerDecoder(t.nn.Module):
         position_feature = self.get_position_feature(batch_size, seq_lenth, device)
         position_feature *= input_mask.long()
         position_embedding = self.position_embedding(position_feature)
-        self_attention_matrixs = {}
-        dot_attention_matrixs = {}
+        # self_attention_matrixs = {}
+        # dot_attention_matrixs = {}
         for step, block in enumerate(self.decoder_block_list):
             if step == 0:
-                embedding = word_embedding + position_embedding
+                embedding = self.layer_norm(word_embedding + position_embedding)
             else:
-                embedding = embedding + position_embedding
+                embedding = self.layer_norm(embedding + position_embedding)
             embedding, self_attention_matrix, dot_attention_matrix = block(embedding,
                                                                            encoder_output,
                                                                            input_mask,
                                                                            self_attention_direction_mask,
                                                                            dot_attention_mask)
-            self_attention_matrixs[step] = self_attention_matrix
-            dot_attention_matrixs[step] = dot_attention_matrix
-        return embedding, self_attention_matrixs, dot_attention_matrixs
+            # self_attention_matrixs[step] = self_attention_matrix
+            # dot_attention_matrixs[step] = dot_attention_matrix
+        return embedding, 0, 0
 
 
 class TransformerDecoderBlock(t.nn.Module):
@@ -244,6 +250,8 @@ class FeedForward(t.nn.Module):
         self.linear2 = t.nn.Conv1d(input_size * 2, input_size, 1)
         self.relu = t.nn.ReLU(True)
         t.nn.init.xavier_normal_(self.linear1.weight)
+        self.linear1.bias.data.zero_()
+        self.linear2.bias.data.zero_()
         t.nn.init.xavier_normal_(self.linear2.weight)
 
     def forward(self, inputs):

@@ -32,7 +32,7 @@ class ScheduledTrainerTrans(BaseTrainerS):
         print(f'Done')
 
     def train_epoch(self):
-        for data in tqdm(self.train_loader, desc='train step'):
+        for data in tqdm(self.train_loader, desc=f'train step:{self.global_epoch}'):
             train_loss = self.train_inference(data)
             train_loss.backward()
             t.nn.utils.clip_grad_norm_([i for i in self.model.parameters() if i.requires_grad is True], max_norm=5.0)
@@ -49,7 +49,7 @@ class ScheduledTrainerTrans(BaseTrainerS):
         scores = []
         self.model.eval()
         with t.no_grad():
-            for data in tqdm(self.dev_loader, desc='eval_step'):
+            for data in tqdm(self.dev_loader, desc=f'eval_step:{self.global_step}'):
                 score = self.eval_inference(data)
                 scores.append(score)
         eval_score = np.mean(scores)
