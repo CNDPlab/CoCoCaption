@@ -40,6 +40,7 @@ def get_loaders(set, batch_size, num_works):
     dataset = HDFSet(set)
     dataloader = DataLoader(dataset, batch_size, True, drop_last=True, num_workers=num_works)
     return dataloader
+
 def get_loaders2(set, batch_size, num_works):
     dataset = HDFSet1(set)
     dataloader = DataLoader(dataset, batch_size, True, drop_last=True, num_workers=num_works)
